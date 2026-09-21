@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { BibleBook, BibleVersionMeta } from '@shared/types/bible'
 import { parseQuickLocate } from '../../lib/bibleSearch'
+import { splitVerseIntoSlides } from '@shared/lib/verseSlides'
 import { categoryColorForIndex } from './bookCategories'
 import { QuickLocatePopup } from './QuickLocatePopup'
 import { LiveToggleButton } from '../common/LiveToggleButton'
@@ -24,6 +25,8 @@ export function BibleBrowserModal({ open, onClose }: { open: boolean; onClose: (
   // cria camada nem mexe no que você está montando no editor.
   const [reading, setReading] = useState(false)
   const [readingVerseIndex, setReadingVerseIndex] = useState(0)
+  /** Versículos longos viram vários slides (2 linhas cada); este é o slide atual dentro do versículo. */
+  const [slideIndex, setSlideIndex] = useState(0)
 
   useEffect(() => {
     if (!open || !window.api) return
@@ -52,11 +55,15 @@ export function BibleBrowserModal({ open, onClose }: { open: boolean; onClose: (
     }
   }, [open])
 
-  /** Manda o versículo direto pro overlay da janela LIVE — não mexe na cena/timeline do projeto. */
-  const showVerseOnScreen = (book: BibleBook, ch: number, verseIndex: number): void => {
+  /** Manda um trecho (slide) do versículo pro overlay da janela LIVE — não mexe na cena/timeline
+   * do projeto. Versículos longos viram vários slides de até 2 linhas; a referência exibida ao
+   * vivo é sempre só "Livro Cap:Vers", sem contador (isso fica só na tela do editor). */
+  const showVerseOnScreen = (book: BibleBook, ch: number, verseIndex: number, slideIdx: number): void => {
     const text = book.chapters[ch - 1]?.[verseIndex]
     if (text === undefined) return
-    window.api?.live.pushOverlay({ text, reference: `${book.name} ${ch}:${verseIndex + 1}` })
+    const slides = splitVerseIntoSlides(text)
+    const slide = slides[Math.min(slideIdx, slides.length - 1)] ?? text
+    window.api?.live.pushOverlay({ text: slide, reference: `${book.name} ${ch}:${verseIndex + 1}` })
   }
 
   const exitReadingMode = (): void => {
@@ -69,18 +76,34 @@ export function BibleBrowserModal({ open, onClose }: { open: boolean; onClose: (
     setBookIndex(bIdx)
     setChapter(ch)
     setReadingVerseIndex(verseIndex)
+    setSlideIndex(0)
     setReading(true)
-    showVerseOnScreen(books[bIdx], ch, verseIndex)
+    showVerseOnScreen(books[bIdx], ch, verseIndex, 0)
   }
 
   const stepVerse = (direction: 1 | -1): void => {
     if (!books) return
     const book = books[bookIndex]
-    const atVeryStart = bookIndex === 0 && chapter === 1 && readingVerseIndex === 0
+    const currentSlideCount = splitVerseIntoSlides(book.chapters[chapter - 1][readingVerseIndex]).length
+
+    // ainda tem mais slide dentro do mesmo versículo: só anda de slide, sem trocar de versículo
+    if (direction === 1 && slideIndex < currentSlideCount - 1) {
+      setSlideIndex(slideIndex + 1)
+      showVerseOnScreen(book, chapter, readingVerseIndex, slideIndex + 1)
+      return
+    }
+    if (direction === -1 && slideIndex > 0) {
+      setSlideIndex(slideIndex - 1)
+      showVerseOnScreen(book, chapter, readingVerseIndex, slideIndex - 1)
+      return
+    }
+
+    const atVeryStart = bookIndex === 0 && chapter === 1 && readingVerseIndex === 0 && slideIndex === 0
     const atVeryEnd =
       bookIndex === books.length - 1 &&
       chapter === book.chapters.length &&
-      readingVerseIndex === book.chapters[chapter - 1].length - 1
+      readingVerseIndex === book.chapters[chapter - 1].length - 1 &&
+      slideIndex === currentSlideCount - 1
     if ((direction === -1 && atVeryStart) || (direction === 1 && atVeryEnd)) return
 
     let bIdx = bookIndex
@@ -103,10 +126,14 @@ export function BibleBrowserModal({ open, onClose }: { open: boolean; onClose: (
       vIdx = 0
     }
 
+    // voltando pra um versículo anterior, entra pelo último slide dele (não pelo primeiro)
+    const sIdx = direction === -1 ? splitVerseIntoSlides(books[bIdx].chapters[ch - 1][vIdx]).length - 1 : 0
+
     setBookIndex(bIdx)
     setChapter(ch)
     setReadingVerseIndex(vIdx)
-    showVerseOnScreen(books[bIdx], ch, vIdx)
+    setSlideIndex(sIdx)
+    showVerseOnScreen(books[bIdx], ch, vIdx, sIdx)
   }
 
   // Aperta qualquer tecla com o modal aberto -> abre o popup de localização
@@ -188,7 +215,7 @@ export function BibleBrowserModal({ open, onClose }: { open: boolean; onClose: (
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, quickBuffer, books, onClose, reading, bookIndex, chapter, readingVerseIndex])
+  }, [open, quickBuffer, books, onClose, reading, bookIndex, chapter, readingVerseIndex, slideIndex])
 
   useEffect(() => {
     if (locatedVerse === null) return
@@ -230,6 +257,7 @@ export function BibleBrowserModal({ open, onClose }: { open: boolean; onClose: (
   const currentBook = books?.[bookIndex] ?? null
   const chapterCount = currentBook?.chapters.length ?? 0
   const verses = currentBook?.chapters[chapter - 1] ?? []
+  const readingSlides = reading && verses[readingVerseIndex] !== undefined ? splitVerseIntoSlides(verses[readingVerseIndex]) : ['']
   const quickState = books && quickBuffer !== null ? parseQuickLocate(books, quickBuffer) : null
 
   const handleSelectBook = (index: number): void => {
@@ -300,9 +328,14 @@ export function BibleBrowserModal({ open, onClose }: { open: boolean; onClose: (
           <div className="flex flex-1 flex-col items-center justify-center gap-8 p-12 text-center">
             <div className="text-2xl font-semibold text-accent">
               {currentBook?.name} {chapter}:{readingVerseIndex + 1}
+              {readingSlides.length > 1 && (
+                <span className="ml-2 text-sm font-normal text-neutral-500">
+                  trecho {slideIndex + 1}/{readingSlides.length}
+                </span>
+              )}
             </div>
-            <div className="max-w-5xl text-5xl font-semibold leading-tight text-white">
-              {verses[readingVerseIndex]}
+            <div className="max-w-5xl whitespace-pre-line text-5xl font-semibold leading-tight text-white">
+              {readingSlides[slideIndex]}
             </div>
           </div>
         ) : (

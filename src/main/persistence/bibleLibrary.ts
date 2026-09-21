@@ -4,39 +4,50 @@ import { join } from 'node:path'
 import type { BibleBook, BibleVersionMeta } from '@shared/types/bible'
 
 /**
- * Fonte: thiagobodruk/biblia (github.com/thiagobodruk/biblia), compilação sob
- * CC BY-NC. Os textos em si pertencem às respectivas sociedades bíblicas —
- * ACF e AA são de uso livre corrente para fins ministeriais; a NVI tem
- * direitos ativamente reservados pela Sociedade Bíblica Internacional, então
- * fica disponível mas com aviso explícito antes de baixar.
+ * Fontes: thiagobodruk/biblia (github.com/thiagobodruk/biblia, CC BY-NC) pra
+ * ACF/AA/NVI, e damarals/biblias (github.com/damarals/biblias, MIT) pra
+ * ARC/NAA — mesmo formato de JSON nos dois. Os textos em si pertencem às
+ * respectivas sociedades bíblicas — ACF e AA são de uso livre corrente para
+ * fins ministeriais; ARC, NAA e NVI têm direitos reservados às suas editoras,
+ * então ficam disponíveis mas com aviso explícito antes de baixar.
  */
 const CATALOG: Omit<BibleVersionMeta, 'downloaded'>[] = [
   {
     id: 'acf',
     label: 'Almeida Corrigida Fiel (ACF)',
-    license: 'Uso ministerial livre — Sociedade Bíblica Trinitariana do Brasil.'
+    license: 'Uso ministerial livre — Sociedade Bíblica Trinitariana do Brasil.',
+    source: 'https://raw.githubusercontent.com/thiagobodruk/biblia/master/json/acf.json'
   },
   {
     id: 'aa',
     label: 'Almeida Revisada Imprensa Bíblica (AA)',
-    license: 'Uso ministerial livre — Imprensa Bíblica Brasileira.'
+    license: 'Uso ministerial livre — Imprensa Bíblica Brasileira.',
+    source: 'https://raw.githubusercontent.com/thiagobodruk/biblia/master/json/aa.json'
+  },
+  {
+    id: 'arc',
+    label: 'Almeida Revista e Corrigida (ARC)',
+    license: 'Direitos reservados à Sociedade Bíblica do Brasil — confirme a licença antes de usar comercialmente.',
+    source: 'https://github.com/damarals/biblias/releases/latest/download/ARC.json'
   },
   {
     id: 'naa',
     label: 'Nova Almeida Atualizada (NAA)',
-    license:
-      'Texto com direitos reservados à Sociedade Bíblica do Brasil. O programa não baixa esse texto: importe um arquivo da NAA que você tenha licença para usar (mesmo formato das outras versões).',
-    importOnly: true
+    license: 'Direitos reservados à Sociedade Bíblica do Brasil — confirme a licença antes de usar comercialmente.',
+    source: 'https://github.com/damarals/biblias/releases/latest/download/NAA.json'
   },
   {
     id: 'nvi',
     label: 'Nova Versão Internacional (NVI)',
-    license: 'Direitos reservados à Sociedade Bíblica Internacional — confirme a licença antes de usar comercialmente.'
+    license: 'Direitos reservados à Sociedade Bíblica Internacional — confirme a licença antes de usar comercialmente.',
+    source: 'https://raw.githubusercontent.com/thiagobodruk/biblia/master/json/nvi.json'
   }
 ]
 
 function sourceUrl(versionId: string): string {
-  return `https://raw.githubusercontent.com/thiagobodruk/biblia/master/json/${versionId}.json`
+  const entry = CATALOG.find((v) => v.id === versionId)
+  if (!entry?.source) throw new Error('Versão desconhecida ou sem fonte de download.')
+  return entry.source
 }
 
 function bibleDir(): string {

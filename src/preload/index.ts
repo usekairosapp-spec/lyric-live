@@ -15,6 +15,7 @@ import type { Project } from '@shared/types/project'
 import type { BibleBook, BibleVersionMeta } from '@shared/types/bible'
 import type { Playlist, Song, SongSearchResult, SongSummary } from '@shared/types/song'
 import type { TranscribedSegment, TranscribeProgress } from '@shared/types/transcribe'
+import type { HolyricsImportSongsResult, HolyricsSettings, HolyricsSongSummary } from '@shared/types/holyrics'
 
 const api = {
   project: {
@@ -66,6 +67,17 @@ const api = {
       ipcRenderer.invoke(IPC.bibleImportVersion, versionId),
     deleteVersion: (versionId: string): Promise<void> =>
       ipcRenderer.invoke(IPC.bibleDeleteVersion, versionId)
+  },
+  holyrics: {
+    getSettings: (): Promise<HolyricsSettings | null> => ipcRenderer.invoke(IPC.holyricsGetSettings),
+    saveSettings: (settings: HolyricsSettings): Promise<void> =>
+      ipcRenderer.invoke(IPC.holyricsSaveSettings, settings),
+    testConnection: (settings: HolyricsSettings): Promise<void> =>
+      ipcRenderer.invoke(IPC.holyricsTestConnection, settings),
+    listSongs: (settings: HolyricsSettings): Promise<HolyricsSongSummary[]> =>
+      ipcRenderer.invoke(IPC.holyricsListSongs, settings),
+    importSongs: (settings: HolyricsSettings, ids: string[]): Promise<HolyricsImportSongsResult> =>
+      ipcRenderer.invoke(IPC.holyricsImportSongs, settings, ids)
   },
   fonts: {
     list: (): Promise<string[]> => ipcRenderer.invoke(IPC.fontsList)

@@ -9,6 +9,7 @@ import { registerMediaHandlers } from './ipc/mediaHandlers'
 import { registerLiveHandlers, type LiveWindowController } from './ipc/liveHandlers'
 import { registerBibleHandlers } from './ipc/bibleHandlers'
 import { registerSongHandlers } from './ipc/songHandlers'
+import { registerHolyricsHandlers } from './ipc/holyricsHandlers'
 import { registerTranscribeHandlers } from './ipc/transcribeHandlers'
 import { buildAppMenu } from './menu'
 import { registerFontHandlers } from './ipc/fontHandlers'
@@ -181,6 +182,7 @@ app.whenReady().then(() => {
   registerLiveHandlers(liveController)
   registerBibleHandlers()
   registerSongHandlers()
+  registerHolyricsHandlers()
   registerTranscribeHandlers()
   registerFontHandlers()
   registerUpdateHandlers(() => mainWindow)
